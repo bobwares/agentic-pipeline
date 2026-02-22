@@ -2,38 +2,161 @@
 
 This file is the global project memory. Read it at the start of every session.
 
+---
+
+## Turn Lifecycle (New)
+
+Every coding task is a **turn** — a structured 10-step protocol with full provenance tracking.
+
+```
+PRE-EXECUTION                   EXECUTION              POST-EXECUTION
+─────────────────────────────   ─────────────────────  ──────────────────────────────────
+Step 1: Resolve TURN_ID         Step 5: Execute tasks  Step 6: Record end time
+Step 2: Create turn directory                          Step 7: Write pull_request.md
+Step 3: Write session_context                          Step 8: Write adr.md (mandatory)
+Step 4: Record start time                              Step 9: Write manifest.json
+                                                       Step 10: Update turns_index.csv
+```
+
+Every turn produces **4 artifacts** in `./ai/agentic-pipeline/turns/turn-${TURN_ID}/`:
+
+| Artifact | Purpose |
+|----------|---------|
+| `session_context.md` | Table of all loaded context variables |
+| `pull_request.md` | Files changed, tasks executed, compliance checklist |
+| `adr.md` | Architecture Decision Record (full or minimal — mandatory) |
+| `manifest.json` | SHA-256 hashes of all output files (validated against schema) |
+
+---
+
+## Governance Standards (New)
+
+Applied to **every file** written or modified. See `.claude/context/context_governance.md`.
+
+### Metadata Headers (mandatory on all source files)
+
+```typescript
+/**
+ * App: MyApp
+ * Package: apps/api/src/modules/tasks
+ * File: tasks.service.ts
+ * Version: 0.2.0
+ * Turns: 1, 3
+ * Author: AI Coding Agent (claude-opus-4-5)
+ * Date: 2026-02-22T14:35:00Z
+ * Exports: TasksService
+ * Description: Task domain service — validates assignment rules and emits domain events
+ */
+```
+
+### Semantic Versioning (per file)
+
+| Change | Bump |
+|--------|------|
+| New file | `0.1.0` |
+| Bug fix / refactor | PATCH: `0.1.1` |
+| New feature | MINOR: `0.2.0` |
+| Breaking change | MAJOR: `1.0.0` |
+
+### Commit Format
+
+```
+AI Coding Agent Change:
+- Implement TaskAssignmentService with domain validation
+- Emit TaskAssigned event on assignee change
+- Write 14 unit tests for assignment edge cases
+- Document repository pattern decision in ADR turn-3
+```
+
+### Git Tagging
+
+After every turn: `git tag turn/${TURN_ID} && git push origin turn/${TURN_ID}`
+
+---
+
+## Architecture Decision Records (New)
+
+**Every turn requires an `adr.md`** — full or minimal. No exceptions.
+
+- Full ADR: when architectural decisions are made (technology choices, API changes, pattern selections, infrastructure)
+- Minimal: `No architectural decision made this turn — [what was done instead].`
+
+Template: `.claude/templates/adr/adr_template.md`
+
+Significant ADRs are also added to `.claude/memory/decisionLog.md`.
+
+---
+
 ## Memory Bank
 
-The memory bank lives in `.claude/memory/`. Always load these files at session start with `/session-start`.
+The memory bank lives in `.claude/memory/`. Always load with `/session-start`.
 
 | File | Purpose | Update Frequency |
 |------|---------|-----------------|
 | `projectContext.md` | Project identity, stack, key URLs | Rarely (stable) |
 | `activeContext.md` | Current branch, WIP, next step | Every session |
 | `progress.md` | Epics/tasks status table | Every session |
-| `decisionLog.md` | Architecture Decision Records | On new decisions |
+| `decisionLog.md` | Key ADR summaries for long-term memory | On full ADRs |
 | `conventions.md` | Project-specific patterns | As discovered |
 | `sessionHistory.md` | Session summaries log | End of every session |
+
+---
+
+## Context Files (New)
+
+7 context files are loaded at session start (auto-loaded by SessionStart hook):
+
+| File | Purpose |
+|------|---------|
+| `context_container.md` | Base directories and path variable definitions |
+| `context_session.md` | Turn timing and directory variables |
+| `context_conventions.md` | Naming, templating, git conventions |
+| `context_governance.md` | Mandatory coding standards |
+| `context_orchestration.md` | Complete 10-step turn lifecycle |
+| `context_adr.md` | ADR policy and decision matrix |
+| `context_skills.md` | Available skills and invocation guide |
+
+---
+
+## Templates (New)
+
+| Template | Path | Used By |
+|----------|------|---------|
+| ADR | `.claude/templates/adr/adr_template.md` | adr skill, session-end |
+| Session context | `.claude/templates/contexts/session_context.md` | orchestration Step 3 |
+| Pull request | `.claude/templates/pr/pull_request_template.md` | orchestration Step 7, session-end |
+| Manifest schema | `.claude/templates/turn/manifest.schema.json` | orchestration Step 9 |
+| Metadata header | `.claude/templates/governance/metadata_header.txt` | governance skill |
+| Branch naming | `.claude/templates/governance/branch_naming.md` | governance skill |
+| Commit message | `.claude/templates/governance/commit_message.md` | governance skill |
+
+---
 
 ## Workflow: Spec → Code → Ship
 
 ```
-1. /spec-prd-new   → Define what to build (PRD)
-2. /spec-prd-parse → Break PRD into epics and tasks
-3. /spec-epic-start → Begin implementation (spawns orchestrator)
-4. /spec-task-next  → Get next task
-5. /verify-all      → Quality gate before every PR
+1. /spec-prd-new       → Define what to build (PRD)
+2. /spec-prd-parse     → Break PRD into DDD-aligned epics and tasks
+3. /spec-epic-start    → Begin implementation (spawns orchestrator + turn lifecycle)
+4. /spec-task-next     → Get next task
+5. /verify-all         → Quality gate before every PR
 6. /git-commit-push-pr → Ship it
 ```
 
-## Agent Team
+### Or, one command:
 
-Invoke agents using the Task tool or by typing their name. The orchestrator handles routing.
+```
+/execute prd=docs/app.prd.md ddd=docs/app.ddd.md stack=nextjs+nestjs+drizzle+shadcn
+```
+
+---
+
+## Agent Team
 
 | Agent | Role | Model |
 |-------|------|-------|
-| `orchestrator` | Master coordinator — delegates to specialists | opus |
-| `code-architect` | System design, API contracts, database schema design | opus |
+| `orchestrator` | Master coordinator — 5-phase workflow, delegates to specialists | opus |
+| `code-architect` | System design, API contracts, database schema | opus |
 | `nextjs-engineer` | Next.js 15 App Router, server components, server actions | sonnet |
 | `nestjs-engineer` | NestJS modules, guards, interceptors, DTOs | sonnet |
 | `spring-engineer` | Java Spring Boot REST, JPA, Spring Security | sonnet |
@@ -47,26 +170,50 @@ Invoke agents using the Task tool or by typing their name. The orchestrator hand
 | `git-guardian` | Conventional commits, PR creation, branch management | sonnet |
 | `memory-bank` | Memory bank management, session state | haiku |
 
-## Skill Activation
+---
 
-Domain knowledge skills are auto-suggested by the skill-eval hook when you type a prompt. Workflow skills are invoked manually:
+## Skills Quick Reference
 
-**Domain skills** (auto-suggested): `nextjs-patterns`, `nestjs-patterns`, `spring-patterns`, `drizzle-patterns`, `shadcn-patterns`, `vercel-ai-patterns`, `testing-patterns`, `react-ui-patterns`, `api-design-patterns`, `systematic-debugging`
+**Domain skills** (auto-suggested by skill-eval hook):
+`nextjs-patterns`, `nestjs-patterns`, `spring-patterns`, `drizzle-patterns`, `shadcn-patterns`, `vercel-ai-patterns`, `testing-patterns`, `react-ui-patterns`, `api-design-patterns`, `systematic-debugging`
 
-**Workflow skills** (manual): `/spec-prd-new`, `/spec-prd-parse`, `/spec-prd-list`, `/spec-epic-start`, `/spec-task-next`, `/session-start`, `/session-end`, `/memory-init`, `/verify-all`, `/test-and-fix`, `/security-scan`, `/git-commit-push-pr`, `/git-quick-commit`, `/git-checkpoint`, `/git-rollback`, `/git-undo`, `/context-prime`, `/mode`, `/fix-issue`
+**Governance skills** (always active):
+`governance`, `adr`
 
-## Non-Negotiable Standards
+**Workflow skills** (manual invocation):
 
-These rules apply to all code in all layers. See `.claude/rules/tech-standards.md` for full detail.
+| Skill | Command | Description |
+|-------|---------|-------------|
+| execute | `/execute prd=... ddd=... stack=...` | One-command: PRD+DDD+stack → working app |
+| ddd-parse | `/ddd-parse docs/app.ddd.md` | Parse DDD doc into model.json |
+| project-init | `/project-init nextjs+nestjs+drizzle` | Scaffold monorepo |
+| spec-prd-new | `/spec-prd-new` | Start writing a new PRD |
+| spec-prd-parse | `/spec-prd-parse <name>` | Generate epic from PRD |
+| spec-epic-start | `/spec-epic-start <name>` | Launch epic |
+| spec-task-next | `/spec-task-next` | Advance to next task |
+| memory-init | `/memory-init` | Initialize memory bank |
+| session-start | `/session-start` | Load context + orient |
+| session-end | `/session-end` | Complete turn artifacts + update memory |
+| verify-all | `/verify-all` | typecheck + lint + test + build |
+| test-and-fix | `/test-and-fix` | Run tests, auto-fix |
+| security-scan | `/security-scan` | OWASP review |
+| git-commit-push-pr | `/git-commit-push-pr` | Commit + push + PR |
+| git-quick-commit | `/git-quick-commit` | Fast checkpoint |
+| fix-issue | `/fix-issue <description>` | Fix specific issue |
+
+---
+
+## Non-Negotiable Code Standards
+
+See `.claude/rules/tech-standards.md` for full detail. `.claude/context/context_governance.md` for governance rules.
 
 ### TypeScript
 - `"strict": true` in every tsconfig
 - No `any` — use `unknown` + type guards
-- No `// @ts-ignore` without a comment
+- Metadata header on every `.ts`/`.tsx` file
 
 ### React / Next.js
 - Server Components by default; `'use client'` only when needed
-- Loading state: `if (loading && !data)` — never `if (loading)`
 - Always handle: loading → error → empty → success
 
 ### NestJS
@@ -86,32 +233,55 @@ These rules apply to all code in all layers. See `.claude/rules/tech-standards.m
 ### Security
 - No secrets in source code — ever
 - Validate all user input at every entry point
-- Auth at route level; authorization in service layer
 
 ### Git
 - No direct commits to `main` — PRs only
-- Conventional commits: `feat/fix/chore/docs/refactor/test(scope): description`
-- Run `/verify-all` before every PR
+- Branch: `<type>/<description>[-<task-id>]`
+- Commit: `AI Coding Agent Change:` + 3-5 imperative bullets
+- Tag every turn: `turn/${TURN_ID}`
 
-## Project Structure (Assumed Monorepo)
+---
+
+## Project Structure
 
 ```
-my-app/
+project-root/
+├── ai/
+│   ├── agentic-pipeline/          # Turn artifacts
+│   │   ├── turns_index.csv        # Turn registry
+│   │   └── turns/
+│   │       └── turn-N/
+│   │           ├── session_context.md
+│   │           ├── pull_request.md
+│   │           ├── adr.md
+│   │           └── manifest.json
+│   └── context/
+│       └── project_context.md
 ├── apps/
-│   ├── web/              # Next.js 15 frontend
-│   └── api/              # NestJS backend
+│   ├── web/                        # Next.js 15 App Router
+│   └── api/                        # NestJS REST API
 ├── services/
-│   └── enterprise/       # Java/Spring Boot (optional)
+│   └── enterprise/                 # Java Spring Boot (optional)
 ├── packages/
-│   ├── database/         # Drizzle schema + migrations
-│   ├── types/            # Shared TypeScript types
-│   └── ui/               # Shared UI components (optional)
-├── .claude/              # This configuration
-├── CLAUDE.md             # This file
-└── package.json          # pnpm workspaces root
+│   ├── database/                   # Drizzle ORM
+│   ├── types/                      # Shared TypeScript types
+│   └── ui/                         # Shared UI components (optional)
+├── .claude/
+│   ├── agents/                     # 14 specialist agents
+│   ├── skills/                     # 36 skills (domain + workflow + governance)
+│   ├── context/                    # 7 context reference files
+│   ├── hooks/                      # skill-eval, audit-log
+│   ├── memory/                     # 6-file memory bank
+│   ├── rules/                      # 3 rule files
+│   └── templates/                  # ADR, PR, manifest, governance templates
+├── CLAUDE.md                       # This file
+├── USAGE.md                        # How to use the one-command pipeline
+└── package.json                    # pnpm workspaces root
 ```
 
-## Key Commands Quick Reference
+---
+
+## Key Commands
 
 ```bash
 pnpm dev              # Start all services (requires turbo)

@@ -62,6 +62,17 @@
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=\"$(pwd)/.claude\"; echo \"\\n=== AGENTIC-PIPELINE SESSION START ===\"; echo \"Loading context files...\"; for ctx in context_container context_session context_conventions context_governance context_orchestration context_adr context_skills; do [ -f \"${CLAUDE_PLUGIN_ROOT}/context/${ctx}.md\" ] && echo \"  ✓ ${ctx}.md\" || echo \"  ✗ ${ctx}.md (missing)\"; done; TURNS_INDEX=\"./ai/agentic-pipeline/turns_index.csv\"; if [ -f \"$TURNS_INDEX\" ]; then LAST_TURN=$(tail -n +2 \"$TURNS_INDEX\" | cut -d',' -f1 | sort -n | tail -1); NEXT_TURN=$((LAST_TURN + 1)); echo \"Last turn: ${LAST_TURN} | Next turn: ${NEXT_TURN}\"; else echo \"No turns yet — next turn will be: 1\"; fi; echo \"Governance: ACTIVE (metadata headers + ADR required)\"; echo \"==========================================\"; exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
